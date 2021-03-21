@@ -1,5 +1,4 @@
-#ifndef __SIMPLE_9250_H__
-#define __SIMPLE_9250_H__
+#pragma once
 #include <SparkFunMPU9250-DMP.h>
 
 
@@ -19,5 +18,3 @@ class Simple9250 {
     private:
         MPU9250_DMP* imu;
 };
-
-#endif
