@@ -1,5 +1,5 @@
 #include "Simple9250.h"
-
+#ifdef _SPARKFUN_MPU9250_DMP_H_
 Simple9250::Simple9250() {
 
 }
@@ -103,3 +103,4 @@ bool Simple9250::readData(euler_angles_t* angles)
     }
     return false;
 }
+#endif
