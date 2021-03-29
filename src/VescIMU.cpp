@@ -1,11 +1,11 @@
-#include <ImuBNO08X.h>
+#include <VescIMU.h>
 
-ImuBNO08X::ImuBNO08X()
+VescIMU::VescIMU()
 {
     bno08x = new Adafruit_BNO08x();
 }
 
-bool ImuBNO08X::setReports()
+bool VescIMU::setReports()
 {
     if (!bno08x->enableReport(report_type, report_interval_us))
     {
@@ -14,7 +14,7 @@ bool ImuBNO08X::setReports()
     return true;
 }
 
-int ImuBNO08X::resetBus(int sda_pin, int scl_pin) {
+int VescIMU::resetBus(int sda_pin, int scl_pin) {
   pinMode(scl_pin, INPUT_PULLUP);
   pinMode(sda_pin, INPUT_PULLUP);
   delay(2);
@@ -50,7 +50,7 @@ int ImuBNO08X::resetBus(int sda_pin, int scl_pin) {
 }
 
 
-bool ImuBNO08X::begin(sh2_SensorId_t _report_type, long _report_interval_us, int sda_pin, int scl_pin)
+bool VescIMU::begin(sh2_SensorId_t _report_type, long _report_interval_us, int sda_pin, int scl_pin)
 {
     Wire.setSDA(sda_pin);
     Wire.setSCL(scl_pin);
@@ -70,7 +70,7 @@ bool ImuBNO08X::begin(sh2_SensorId_t _report_type, long _report_interval_us, int
     return setReports();
 }
 
-void ImuBNO08X::scan() {
+void VescIMU::scan() {
   byte error, address;
   int nDevices;
 
@@ -112,7 +112,7 @@ void ImuBNO08X::scan() {
 }
 
 
-void ImuBNO08X::quaternionToEuler(float qr, float qi, float qj, float qk, euler_t *ypr, bool degrees)
+void VescIMU::quaternionToEuler(float qr, float qi, float qj, float qk, euler_t *ypr, bool degrees)
 {
 
     float sqr = sq(qr);
@@ -132,17 +132,17 @@ void ImuBNO08X::quaternionToEuler(float qr, float qi, float qj, float qk, euler_
     }
 }
 
-void ImuBNO08X::quaternionToEulerRV(sh2_RotationVectorWAcc_t *rotational_vector, euler_t *ypr, bool degrees)
+void VescIMU::quaternionToEulerRV(sh2_RotationVectorWAcc_t *rotational_vector, euler_t *ypr, bool degrees)
 {
     quaternionToEuler(rotational_vector->real, rotational_vector->i, rotational_vector->j, rotational_vector->k, ypr, degrees);
 }
 
-void ImuBNO08X::quaternionToEulerGI(sh2_GyroIntegratedRV_t *rotational_vector, euler_t *ypr, bool degrees)
+void VescIMU::quaternionToEulerGI(sh2_GyroIntegratedRV_t *rotational_vector, euler_t *ypr, bool degrees)
 {
     quaternionToEuler(rotational_vector->real, rotational_vector->i, rotational_vector->j, rotational_vector->k, ypr, degrees);
 }
 
-bool ImuBNO08X::readEuler()
+bool VescIMU::readEuler()
 {
     if (bno08x->wasReset())
     {

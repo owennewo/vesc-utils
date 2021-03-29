@@ -9,10 +9,10 @@ struct euler_t {
   float interval_us;
 };
 
-class ImuBNO08X {
+class VescIMU {
 
 public:
-    ImuBNO08X();
+    VescIMU();
     bool begin(sh2_SensorId_t reportType = SH2_ARVR_STABILIZED_RV, long _report_interval_us = 5000, int sda_pin = I2C2_SDA, int scl_pin = I2C2_SCL);
     bool readEuler();
     int resetBus(int sda_pin, int scl_pin);
