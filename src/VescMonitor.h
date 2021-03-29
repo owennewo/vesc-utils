@@ -13,6 +13,8 @@ public:
     VescMonitor();
     void checkVoltage(BLDCMotor *motor = nullptr);
     float getVoltage();
-private:
+    void print(Stream& printer);
 
+private:
+    
 };

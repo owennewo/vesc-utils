@@ -67,7 +67,12 @@ bool VescIMU::begin(sh2_SensorId_t _report_type, long _report_interval_us, int s
 
     Wire.setClock(400000);
 
-    return setReports();
+    if (!setReports()) {
+      return false;
+    }
+
+    setup_complete = true;
+    return true;
 }
 
 void VescIMU::scan() {
@@ -144,6 +149,9 @@ void VescIMU::quaternionToEulerGI(sh2_GyroIntegratedRV_t *rotational_vector, eul
 
 bool VescIMU::readEuler()
 {
+  if (!setup_complete) {
+    return false;
+  }
     if (bno08x->wasReset())
     {
         setReports();
@@ -172,4 +180,12 @@ bool VescIMU::readEuler()
         return true;
     }
     return false;
+}
+
+void VescIMU::print(Stream& printer) {
+    Serial.print(euler.interval_us);             Serial.print("\t");
+    Serial.print(euler.status);     Serial.print("\t");  // This is accuracy in the range of 0 to 3
+    Serial.print(euler.yaw);                Serial.print("\t");
+    Serial.print(euler.pitch);              Serial.print("\t");
+    Serial.println(euler.roll);
 }

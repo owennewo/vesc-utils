@@ -17,6 +17,7 @@ public:
     bool readEuler();
     int resetBus(int sda_pin, int scl_pin);
     void scan();
+    void print(Stream& printer);
 
     euler_t euler;
     sh2_SensorValue_t sensorValue;
@@ -28,8 +29,8 @@ private:
     void quaternionToEulerGI(sh2_GyroIntegratedRV_t* rotational_vector, euler_t* ypr, bool degrees = false);
     bool setReports();
 
-
     sh2_SensorId_t report_type;
     long report_interval_us;
+    bool setup_complete = false;
 
 };

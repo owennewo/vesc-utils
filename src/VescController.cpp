@@ -120,3 +120,16 @@ bool VescController::readData()
   }
   return false;
 }
+
+void VescController::print(Stream& printer) {
+    printer.print(data.x1);             printer.print(" ");
+    printer.print(data.y1);             printer.print(" ");
+    printer.print(data.x2);             printer.print(" ");
+    printer.print(data.y2);             printer.print(" ");
+    printer.print(data.pan1);           printer.print(" ");
+    printer.print(data.pan2);           printer.print(" ");
+    printer.print(data.switch1);        printer.print(" ");
+    printer.print(data.switch2);        printer.print(" ");
+    printer.print(data.switch3);        printer.print(" ");
+    printer.println(data.switch4);
+}

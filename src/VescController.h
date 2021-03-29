@@ -40,6 +40,7 @@ public:
   void begin(HardwareSerial& serial = Serial6);
   void begin(Stream& stream);
   bool readData();
+  void print(Stream& printer);
   long last_read_millis;
   
   controller_data_t data;

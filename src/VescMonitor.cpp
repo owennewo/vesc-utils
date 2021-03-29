@@ -42,3 +42,8 @@ void VescMonitor::checkVoltage(BLDCMotor *motor) {
     Serial.println("voltage recovered");
   }
 }
+
+void VescMonitor::print(Stream& printer) {
+  float voltage = getVoltage();
+  printer.print("Voltage: "); printer.println(voltage);
+}
