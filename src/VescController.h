@@ -13,8 +13,14 @@ static const uint8_t PROTOCOL_LENGTH = 0x20;
 // digital switches 0=down 1=up 2=halfway
 #define normalize_digital_channel(val) ((val < 1250)? 1: (val > 1750)? 0: 2)
 
+enum ControllerStatus {
+    NO_DATA,
+    RECEIVING,
+};
+
 struct controller_data_t {
     float x1;
+
     float y1;
     float x2;
     float y2;
@@ -34,6 +40,7 @@ public:
   void begin(HardwareSerial& serial = Serial6);
   void begin(Stream& stream);
   bool readData();
+  long last_read_millis;
   
   controller_data_t data;
 
@@ -48,15 +55,15 @@ private:
     DISCARD,
   };
 
-  
   uint8_t state;
   Stream* stream;
   uint32_t last;
   uint8_t buffer[PROTOCOL_LENGTH];
   uint8_t ptr;
   uint8_t len;
-//   uint16_t channel[PROTOCOL_CHANNELS];
   uint16_t chksum;
   uint8_t lchksum;
+  ControllerStatus status  = NO_DATA;
+
 };
 

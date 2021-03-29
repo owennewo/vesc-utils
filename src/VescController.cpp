@@ -1,5 +1,7 @@
 #include "VescController.h"
 
+#define CONTROLLER_TIMEOUT 1000
+
 VescController::VescController() {
 
 }
@@ -91,6 +93,8 @@ bool VescController::readData()
                 data.raw[i / 2] = value;
               }
               prepareData();
+              last_read_millis = millis();
+              status = RECEIVING;
               state = DISCARD;
               return true;
 
@@ -105,6 +109,14 @@ bool VescController::readData()
       default:
         break;
     }
+  }
+  if (millis() - last_read_millis > CONTROLLER_TIMEOUT && status == RECEIVING) {
+      status = NO_DATA;
+      for (int index = 0; index < PROTOCOL_CHANNELS; index++) {
+          data.raw[index] = 1500;
+      }
+      prepareData();
+      return true;
   }
   return false;
 }
