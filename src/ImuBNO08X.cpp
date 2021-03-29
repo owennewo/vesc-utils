@@ -5,22 +5,112 @@ ImuBNO08X::ImuBNO08X()
     bno08x = new Adafruit_BNO08x();
 }
 
-bool ImuBNO08X::begin(sh2_SensorId_t reportType, long _report_interval_us)
+bool ImuBNO08X::setReports()
 {
+    if (!bno08x->enableReport(report_type, report_interval_us))
+    {
+        return false;
+    }
+    return true;
+}
+
+int ImuBNO08X::resetBus(int sda_pin, int scl_pin) {
+  pinMode(scl_pin, INPUT_PULLUP);
+  pinMode(sda_pin, INPUT_PULLUP);
+  delay(2);
+
+  if (digitalRead(scl_pin) == LOW) {
+    // Someone else has claimed master!;
+    return 1;
+  }
+
+  if(digitalRead(sda_pin) == LOW) {
+    // slave is communicating and awaiting clocks, we are blocked
+    pinMode(scl_pin, OUTPUT);
+    for (byte i = 0; i < 16; i++) {
+      // toggle clock for 2 bytes of data
+      digitalWrite(scl_pin, LOW);
+      delayMicroseconds(20);
+      digitalWrite(scl_pin, HIGH);
+      delayMicroseconds(20);
+    }
+    pinMode(sda_pin, INPUT);
+    delayMicroseconds(20);
+    if (digitalRead(sda_pin) == LOW) { 
+      // SDA still blocked
+      return 2; 
+    } 
+    delay(10);
+  }
+  // SDA is clear (HIGH)
+  pinMode(sda_pin, INPUT);
+  pinMode(scl_pin, INPUT);
+  
+  return 0; 
+}
+
+
+bool ImuBNO08X::begin(sh2_SensorId_t _report_type, long _report_interval_us, int sda_pin, int scl_pin)
+{
+    Wire.setSDA(sda_pin);
+    Wire.setSCL(scl_pin);
+    
+    resetBus(sda_pin, scl_pin);
+
     report_interval_us = _report_interval_us;
+    report_type = _report_type;
 
     if (!bno08x->begin_I2C())
     {
         return false;
     }
 
-    if (!bno08x->enableReport(reportType, report_interval_us))
-    {
-        return false;
-    }
+    Wire.setClock(400000);
 
-    return true;
+    return setReports();
 }
+
+void ImuBNO08X::scan() {
+  byte error, address;
+  int nDevices;
+
+  Serial.println("Scanning...");
+
+  nDevices = 0;
+  for(address = 1; address < 127; address++ ) 
+  {
+    // The i2c_scanner uses the return value of
+    // the Write.endTransmisstion to see if
+    // a device did acknowledge to the address.
+    Wire.beginTransmission(address);
+    error = Wire.endTransmission();
+
+    if (error == 0)
+    {
+      Serial.print("I2C device found at address 0x");
+      if (address<16) 
+        Serial.print("0");
+      Serial.print(address,HEX);
+      Serial.println("  !");
+
+      nDevices++;
+    }
+    else if (error==4) 
+    {
+      Serial.print("Unknow error at address 0x");
+      if (address<16) 
+        Serial.print("0");
+      Serial.println(address,HEX);
+    }    
+  }
+  if (nDevices == 0)
+    Serial.println("No I2C devices found\n");
+  else
+    Serial.println("done\n");
+
+  delay(2000); 
+}
+
 
 void ImuBNO08X::quaternionToEuler(float qr, float qi, float qj, float qk, euler_t *ypr, bool degrees)
 {
@@ -42,37 +132,44 @@ void ImuBNO08X::quaternionToEuler(float qr, float qi, float qj, float qk, euler_
     }
 }
 
-void ImuBNO08X::quaternionToEulerRV(sh2_RotationVectorWAcc_t* rotational_vector, euler_t* ypr, bool degrees) {
+void ImuBNO08X::quaternionToEulerRV(sh2_RotationVectorWAcc_t *rotational_vector, euler_t *ypr, bool degrees)
+{
     quaternionToEuler(rotational_vector->real, rotational_vector->i, rotational_vector->j, rotational_vector->k, ypr, degrees);
 }
 
-void ImuBNO08X::quaternionToEulerGI(sh2_GyroIntegratedRV_t* rotational_vector, euler_t* ypr, bool degrees) {
+void ImuBNO08X::quaternionToEulerGI(sh2_GyroIntegratedRV_t *rotational_vector, euler_t *ypr, bool degrees)
+{
     quaternionToEuler(rotational_vector->real, rotational_vector->i, rotational_vector->j, rotational_vector->k, ypr, degrees);
 }
 
 bool ImuBNO08X::readEuler()
 {
-
-    // if (bno08x->wasReset()) {
-    //     setReports(reportType, reportIntervalUs);
-    // }
-  
-  if (bno08x->getSensorEvent(&sensorValue)) {
-    // in this demo only one report type will be received depending on FAST_MODE define (above)
-    switch (sensorValue.sensorId) {
-      case SH2_ARVR_STABILIZED_RV:
-        quaternionToEulerRV(&sensorValue.un.arvrStabilizedRV, &euler, true);
-      case SH2_GYRO_INTEGRATED_RV:
-        // faster (more noise?)
-        quaternionToEulerGI(&sensorValue.un.gyroIntegratedRV, &euler, true);
-        break;
+    if (bno08x->wasReset())
+    {
+        setReports();
     }
 
-    static long last = 0;
-    long now = micros();
-    euler.status = sensorValue.status;
-    euler.interval_us = now - last;
-    last = now;
-    
-  }
+    if (bno08x->getSensorEvent(&sensorValue))
+    {
+        // in this demo only one report type will be received depending on FAST_MODE define (above)
+        switch (sensorValue.sensorId)
+        {
+        case SH2_ARVR_STABILIZED_RV:
+            quaternionToEulerRV(&sensorValue.un.arvrStabilizedRV, &euler, true);
+            break;
+        case SH2_GYRO_INTEGRATED_RV:
+            // faster (more noise?)
+            return false;
+            // Serial.println("read5");
+            // quaternionToEulerGI(&sensorValue.un.gyroIntegratedRV, &euler, true);
+            break;
+        }
+        static long last = 0;
+        long now = micros();
+        euler.status = sensorValue.status;
+        euler.interval_us = now - last;
+        last = now;
+        return true;
+    }
+    return false;
 }
