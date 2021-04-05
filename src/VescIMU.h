@@ -1,6 +1,8 @@
 #include <Arduino.h>
 #include <Adafruit_BNO08x.h>
 
+#define BNO08X_RESET -1
+
 struct euler_t {
   float yaw;
   float pitch;
@@ -12,10 +14,10 @@ struct euler_t {
 class VescIMU {
 
 public:
-    VescIMU();
+    VescIMU(Adafruit_BNO08x* bno08x);
     bool begin(sh2_SensorId_t reportType = SH2_ARVR_STABILIZED_RV, long _report_interval_us = 5000, int sda_pin = I2C2_SDA, int scl_pin = I2C2_SCL);
     bool readEuler();
-    int resetBus(int sda_pin, int scl_pin);
+    int resetBus(int sda_pin = I2C2_SDA, int scl_pin = I2C2_SCL);
     void scan();
     void print(Stream& printer);
 

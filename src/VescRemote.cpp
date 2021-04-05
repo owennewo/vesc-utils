@@ -1,18 +1,18 @@
-#include "VescController.h"
+#include "VescRemote.h"
 
 #define CONTROLLER_TIMEOUT 1000
 
-VescController::VescController() {
+VescRemote::VescRemote() {
 
 }
 
-void VescController::begin(HardwareSerial& serial)
+void VescRemote::begin(HardwareSerial& serial)
 {
   serial.begin(115200);
   begin((Stream&)serial);
 }
 
-void VescController::begin(Stream& stream)
+void VescRemote::begin(Stream& stream)
 {
   this->stream = &stream;
   this->state = DISCARD;
@@ -23,11 +23,11 @@ void VescController::begin(Stream& stream)
   this->lchksum = 0;
 }
 
-void VescController::prepareData() {
+void VescRemote::prepareData() {
     data.x1 = normalize_analog_channel(data.raw[0]);
     data.y1 = normalize_analog_channel(data.raw[1]);
-    data.x2 = normalize_analog_channel(data.raw[2]);
-    data.y2 = normalize_analog_channel(data.raw[3]);
+    data.y2 = normalize_analog_channel(data.raw[2]);
+    data.x2 = normalize_analog_channel(data.raw[3]);
     data.pan1 = normalize_analog_channel(data.raw[4]);
     data.pan2 = normalize_analog_channel(data.raw[5]);
     data.switch1 = normalize_digital_channel(data.raw[6]);
@@ -36,7 +36,7 @@ void VescController::prepareData() {
     data.switch4 = normalize_digital_channel(data.raw[9]);
 }
 
-bool VescController::readData()
+bool VescRemote::readData()
 {
   while (stream->available() > 0)
   {
@@ -121,7 +121,7 @@ bool VescController::readData()
   return false;
 }
 
-void VescController::print(Stream& printer) {
+void VescRemote::print(Stream& printer) {
     printer.print(data.x1);             printer.print(" ");
     printer.print(data.y1);             printer.print(" ");
     printer.print(data.x2);             printer.print(" ");

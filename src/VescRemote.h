@@ -33,10 +33,10 @@ struct controller_data_t {
     uint16_t raw[PROTOCOL_CHANNELS];
 };
 
-class VescController
+class VescRemote
 {
 public:
-  VescController();
+  VescRemote();
   void begin(HardwareSerial& serial = Serial6);
   void begin(Stream& stream);
   bool readData();
