@@ -54,10 +54,14 @@ int VescIMU::resetBus(int sda_pin, int scl_pin)
   return 0;
 }
 
-bool VescIMU::begin(sh2_SensorId_t _report_type, long _report_interval_us, int sda_pin, int scl_pin)
+bool VescIMU::begin(sh2_SensorId_t _report_type, long _report_interval_us, int sda_pin, int scl_pin, int interrupt_pin)
 {
   Wire.setSDA(sda_pin);
   Wire.setSCL(scl_pin);
+
+  pinMode(LED_RED, OUTPUT);
+  pinMode(PC0, INPUT_PULLUP);
+  attachInterrupt(interrupt_pin, std::bind(&VescIMU::dataInterrupt, this), FALLING);
 
   // scan();
 
@@ -73,7 +77,7 @@ bool VescIMU::begin(sh2_SensorId_t _report_type, long _report_interval_us, int s
     Serial.println("fail begin i2c");
     return false;
   }
-
+  Wire.setClock(1000000);
   for (int n = 0; n < bno08x->prodIds.numEntries; n++)
   {
     Serial.print("Part ");
@@ -169,17 +173,44 @@ void VescIMU::quaternionToEulerGI(sh2_GyroIntegratedRV_t *rotational_vector, eul
   quaternionToEuler(rotational_vector->real, rotational_vector->i, rotational_vector->j, rotational_vector->k, ypr, degrees);
 }
 
-bool VescIMU::readEuler()
+bool VescIMU::readEuler(bool forceRead)
 {
+  if (bno08x->wasReset())
+  {
+    Serial.println("IMU RESET!");
+    reset_count++;
+    setReports();
+    delay(1000);
+    if (reset_count > 1) {
+      digitalWrite(LED_RED, HIGH);
+    }
+    
+  }
+
+  static long last_micros = 0;
+  long now = micros();
+
+  if (now - last_micros > 20000) {
+    Serial.println("late");
+    interruptCount++;
+    dataReady = true;
+  }
+
+  if (interruptCount==0 && !forceRead) {
+    // no interrupt saying data is ready
+    return false;
+  }
+  dataReady = false;
+  interruptCount--;
+  last_micros = now;
+
   if (!setup_complete)
   {
     return false;
   }
-  if (bno08x->wasReset())
-  {
-    setReports();
-  }
+  
 
+  
   if (bno08x->getSensorEvent(&sensorValue))
   {
     // in this demo only one report type will be received depending on FAST_MODE define (above)
@@ -216,4 +247,9 @@ void VescIMU::print(Stream &printer)
   Serial.print(euler.pitch);
   Serial.print("\t");
   Serial.println(euler.roll);
+}
+
+void VescIMU::dataInterrupt() {
+  dataReady = true;
+  interruptCount++;
 }

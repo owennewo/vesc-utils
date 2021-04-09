@@ -5,7 +5,30 @@
 
 void VescControl::onCanMessage(can_message_t* message)
 {
-    switch (message->id) {
+    static CANIndex index = static_cast<CANIndex>(message->data[0] << 8 + message->data[1]);
+    uint8_t subindex = message->data[2];
+
+    if (message->id == 0x01) {
+        memcpy(&data.heading, &message->data, 4);
+        memcpy(&data.speed, &message->data[4], 4);
+        // Serial.print("speed:  "); Serial.println(data.speed);
+        // Serial.print("heading:  "); Serial.println(data.heading);
+                
+        return;
+    } else if (message->id == 0x02) {
+        memcpy(&data.angle, &message->data, 4);
+        Serial.print("angle:  "); Serial.println(data.angle);
+        
+        return;
+    }
+    
+    switch (index) {
+        case CI_MOTOR:
+            if (message->isRTR) sendByte(CI_MOTOR, SIM_ENABLE, motor->enabled);
+            else (message->data[3]==0)? motor->enable(): motor->disable();
+            break;
+        default:
+            Serial.print("unknown: "); Serial.print(index); Serial.print(":"); Serial.println(subindex);
         case 0x01:
             memcpy(&data.heading, &message->data, 4);
             memcpy(&data.speed, &message->data[4], 4);
@@ -14,13 +37,32 @@ void VescControl::onCanMessage(can_message_t* message)
             break;
         case 0x02:
             memcpy(&data.angle, &message->data, 4);
-            // Serial.print("angle:  "); Serial.println(data.angle);
+            Serial.print("angle:  "); Serial.println(data.angle);
         break;   
     }
 }
 
 VescControl::VescControl() {
 
+}
+
+void VescControl::sendByte(CANIndex index, uint8_t subindex, byte data) {
+    txMessage.dlc = 1;
+    txMessage.data[0] = index >> 8;
+    txMessage.data[1] = index & 0xFF;
+    txMessage.data[2] = subindex;
+    txMessage.data[3] = data;
+    txMessage.id = can_identifier;
+}
+
+void VescControl::sendFloat(CANIndex index, uint8_t subindex, float data) {
+    txMessage.dlc = 1;
+    txMessage.data[0] = index >> 8;
+    txMessage.data[1] = index & 0xFF;
+    txMessage.data[2] = subindex;
+    memcpy(&txMessage.data[3], &data, 4);
+    
+    txMessage.id = can_identifier;
 }
 
 void VescControl::begin(CanMode canMode)
@@ -48,16 +90,16 @@ void VescControl::setHeadingSpeed(float heading, float speed) {
 void VescControl::setAngle(float angle) {
     data.angle = angle;
     memcpy(&txAngle.data, &angle, 4);
-    // Serial.print("sending: ");
-    // Serial.println(angle);
+    Serial.print("sending: ");
+    Serial.println(angle);
     _can.transmit(&txAngle);
 }
 void VescControl::print() {
-    static long count = 0;
-    count ++;
-    if (count%1000 == 0) {
-        Serial.print(data.heading); Serial.print(" "); Serial.print(data.speed); Serial.print(" "); Serial.println(data.angle); 
-    }
+    // static long count = 0;
+    // count ++;
+    // if (count%1000 == 0) {
+        Serial.print(" "); Serial.print(data.heading); Serial.print(" "); Serial.print(data.speed); Serial.print(" "); Serial.println(data.angle); 
+    // }
 }
 
 void VescControl::loadRole() {

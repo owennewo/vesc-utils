@@ -1,5 +1,8 @@
 #include <VescFOC.h>
 #include <SimpleFOC.h>
+#include <EEPROM.h>
+
+// #define STORE_FOC
 
 VescFOC::VescFOC(int _pole_pairs) {
     // sensor
@@ -24,7 +27,7 @@ void VescFOC::begin() {
   motor->linkDriver(driver);
   
   motor->voltage_sensor_align = 0.75;
-  motor->voltage_limit = 1.5;
+  motor->voltage_limit = 1.0;
 
   motor->PID_velocity.P = 0.35;
   motor->PID_velocity.I = 2.0;
@@ -37,14 +40,33 @@ void VescFOC::begin() {
   motor->useMonitoring(Serial);
 
   motor->init();
-  motor->initFOC();
+
+  #ifdef STORE_FOC
+    motor->initFOC();
+    float elect_angle = motor->zero_electric_angle;
+    int direction = motor->sensor_direction;
+    Serial.print("STORE FOC: "); Serial.print(elect_angle); Serial.print(" "); Serial.println(direction);
+    EEPROM.put(4, elect_angle);
+    EEPROM.put(8, direction);
+    
+  #else
+    float elect_angle = 0.0;
+    int direction = 0;
+    EEPROM.get(4, elect_angle);
+    EEPROM.get(8, direction);
+    Serial.print("LOAD FOC: "); Serial.print(elect_angle); Serial.print(" "); Serial.println(direction);
+    motor->initFOC(elect_angle, static_cast<Direction>(direction));
+
+  #endif
+  
 
   motor->shaft_angle = 0.0; // for angle_openloop (ovf)
+  motor->sensor_offset = 0.0;
   
 }
 
 void VescFOC::move(float target) {
-  motor->move(target);
+  motor->move(target * 2.0);
 }
 
 void VescFOC::loop() {
@@ -54,5 +76,5 @@ void VescFOC::loop() {
 }
 
 void VescFOC::print(Stream& printer) {
-    Serial.println(motor->shaft_angle);
+    Serial.println(motor->sensor_offset);
 }
