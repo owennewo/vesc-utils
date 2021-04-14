@@ -3,6 +3,7 @@
 #include <EEPROM.h>
 
 // #define STORE_FOC
+// #define REVERSE
 
 VescFOC::VescFOC(int _pole_pairs) {
     // sensor
@@ -27,14 +28,14 @@ void VescFOC::begin() {
   motor->linkDriver(driver);
   
   motor->voltage_sensor_align = 0.75;
-  motor->voltage_limit = 1.0;
+  motor->voltage_limit = 12.0;
 
   motor->PID_velocity.P = 0.35;
   motor->PID_velocity.I = 2.0;
   // motor->LPF_velocity.Tf = 0.001;
   
 
-  motor->controller = MotionControlType::velocity;
+  motor->controller = MotionControlType::torque;
   motor->torque_controller = TorqueControlType::voltage;
 
   motor->useMonitoring(Serial);
@@ -45,28 +46,42 @@ void VescFOC::begin() {
     motor->initFOC();
     float elect_angle = motor->zero_electric_angle;
     int direction = motor->sensor_direction;
-    Serial.print("STORE FOC: "); Serial.print(elect_angle); Serial.print(" "); Serial.println(direction);
+    reverse = 0;
+    #ifdef REVERSE
+      reverse = 1;
+    #endif
+    
+    Serial.print("STORE FOC: "); Serial.print(elect_angle); Serial.print(" "); Serial.print(direction); Serial.print(" "); Serial.println(reverse);
+    EEPROM.put(1, reverse);
     EEPROM.put(4, elect_angle);
     EEPROM.put(8, direction);
     
   #else
     float elect_angle = 0.0;
     int direction = 0;
+    reverse = 0;
+    EEPROM.get(1, reverse);
     EEPROM.get(4, elect_angle);
     EEPROM.get(8, direction);
-    Serial.print("LOAD FOC: "); Serial.print(elect_angle); Serial.print(" "); Serial.println(direction);
+    Serial.print("LOAD FOC: "); Serial.print(elect_angle); Serial.print(" "); Serial.print(direction); Serial.print(" "); Serial.println(reverse);
     motor->initFOC(elect_angle, static_cast<Direction>(direction));
 
   #endif
-  
 
   motor->shaft_angle = 0.0; // for angle_openloop (ovf)
+  motor->shaft_velocity = 0.0;
   motor->sensor_offset = 0.0;
+  motor->enabled = 1;
   
 }
 
 void VescFOC::move(float target) {
-  motor->move(target * 2.0);
+  if (reverse == 1) {
+    motor->move(-target);
+  } else {
+    motor->move(target);
+  }
+  
 }
 
 void VescFOC::loop() {

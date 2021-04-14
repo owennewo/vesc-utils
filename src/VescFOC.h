@@ -12,7 +12,7 @@ public:
     HallSensor* sensor;
     BLDCDriver6PWM* driver;
     BLDCMotor* motor;
-
+    uint8_t reverse; // 0 = no, 1 = reversed
 private:
     int pole_pairs;
 };

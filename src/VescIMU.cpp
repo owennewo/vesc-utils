@@ -78,19 +78,6 @@ bool VescIMU::begin(sh2_SensorId_t _report_type, long _report_interval_us, int s
     return false;
   }
   Wire.setClock(1000000);
-  for (int n = 0; n < bno08x->prodIds.numEntries; n++)
-  {
-    Serial.print("Part ");
-    Serial.print(bno08x->prodIds.entry[n].swPartNumber);
-    Serial.print(": Version :");
-    Serial.print(bno08x->prodIds.entry[n].swVersionMajor);
-    Serial.print(".");
-    Serial.print(bno08x->prodIds.entry[n].swVersionMinor);
-    Serial.print(".");
-    Serial.print(bno08x->prodIds.entry[n].swVersionPatch);
-    Serial.print(" Build ");
-    Serial.println(bno08x->prodIds.entry[n].swBuildNumber);
-  }
 
   if (!setReports())
   {
@@ -180,7 +167,7 @@ bool VescIMU::readEuler(bool forceRead)
     Serial.println("IMU RESET!");
     reset_count++;
     setReports();
-    delay(1000);
+    delay(500);
     if (reset_count > 1) {
       digitalWrite(LED_RED, HIGH);
     }

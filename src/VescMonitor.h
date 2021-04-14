@@ -10,11 +10,14 @@
 class VescMonitor {
 
 public:
-    VescMonitor();
-    void checkVoltage(BLDCMotor *motor = nullptr);
+    VescMonitor(BLDCMotor* motor);
+    void checkVoltage();
     float getVoltage();
     void print(Stream& printer);
-
+    bool fault = false;
 private:
+
+    BLDCMotor* motor;
+    float higher_voltage_percentage = 0.85;  // if voltage < psu * higher_voltage_percentage then fault
     
 };

@@ -1,8 +1,9 @@
 #include <VescMonitor.h>
 
 
-VescMonitor::VescMonitor() {
-
+VescMonitor::VescMonitor(BLDCMotor* _motor) {
+  motor = _motor;
+  pinMode(LED_GREEN, OUTPUT);
 }
 
 float VescMonitor::getVoltage() {
@@ -11,36 +12,45 @@ float VescMonitor::getVoltage() {
   return voltage;
 }
 
-void VescMonitor::checkVoltage(BLDCMotor *motor) {
+void VescMonitor::checkVoltage() {
 
-  const float min_voltage_alarm = 6.0; // if the voltage is below 6, we can assume we are being powered bu usb/serial
-  const float max_voltage_alarm = 20.0;  
-
+  
   float voltage = getVoltage();
 
-  if (voltage > min_voltage_alarm && voltage < max_voltage_alarm) {
-    if (motor) {
+  if (voltage < motor->driver->voltage_power_supply * higher_voltage_percentage) {
+    if (!fault) {
       // never recover from undervoltage
       motor->disable();
-    }
-    
-    while (voltage > min_voltage_alarm && voltage < max_voltage_alarm) {
-      // motor->disable();
-
-      Serial.print("volatage error: "); Serial.println(voltage);
-      digitalWrite(TEMP_MOTOR, HIGH);
+      fault = true;
       digitalWrite(LED_GREEN, HIGH);
-      delay(5);
-      digitalWrite(TEMP_MOTOR, LOW);
+      Serial.println("VOLTAGE too low");
+    }
+  } else if (voltage >= motor->driver->voltage_power_supply * higher_voltage_percentage) {
+    if (fault) {
+      // never recover from undervoltage
+      motor->enable();
+      fault = false;
       digitalWrite(LED_GREEN, LOW);
-      delay(995);
-      if (!motor) {
-        // we can recover from undervoltage if there is no motor to check
-        voltage = getVoltage();
-      } 
-    }    
-    Serial.println("voltage recovered");
+      Serial.print("VOLTAGE recovered: "); Serial.println(fault);
+    }
   }
+    
+    // while (voltage > min_voltage_alarm && voltage < max_voltage_alarm) {
+    //   // motor->disable();
+
+    //   Serial.print("volatage error: "); Serial.println(voltage);
+    //   digitalWrite(TEMP_MOTOR, HIGH);
+    //   digitalWrite(LED_GREEN, HIGH);
+    //   delay(5);
+    //   digitalWrite(TEMP_MOTOR, LOW);
+    //   digitalWrite(LED_GREEN, LOW);
+    //   delay(995);
+    //   if (!motor) {
+    //     // we can recover from undervoltage if there is no motor to check
+    //     voltage = getVoltage();
+    //   } 
+    // }    
+  // }
 }
 
 void VescMonitor::print(Stream& printer) {
