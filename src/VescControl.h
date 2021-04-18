@@ -3,18 +3,14 @@
 #include <SimpleCAN.h>
 #include <EEPROM.h>
 #include "VescRemote.h"
+#include "VescFOC.h"
 
 enum Index {
     I_CONTROL = 0,
     I_MOTOR = 1,
     I_VELOCITY = 2,
     I_ANGLE = 3,
-    // CC_ENABLE = 0,
-    // CC_TARGET = 1,
-    // CC_VELOCITY_P = 2,
-    // CC_VELOCITY_I = 3,
-    // CC_MOTION_TYPE = 4,
-    // CC_MOTION_TYPE = 5,
+
 };
 
 enum SubIndex {
@@ -28,6 +24,8 @@ enum SubIndex {
     // I_MOTOR
     SI_ENABLE = 1,
     SI_TARGET = 2,
+    SI_VOLTAGE = 3,
+    SI_VELOCITY = 4,
     
 };
 
@@ -42,12 +40,16 @@ struct ControlData {
     float throttle;
     float angle;
     float angle_trim;
+    float voltage_master;
+    float voltage_slave;
+    float velocity_slave;
+    float reverse;
     bool kill_switch;
 };
 
 enum ControlRole {
-    MASTER_ROLE = 0xAA,
-    SLAVE_ROLE = 0xBB,
+    MASTER_ROLE = 0xBB,
+    SLAVE_ROLE = 0xAA,
     UNKNOWN_ROLE = 0x00,
 };
 
@@ -55,11 +57,14 @@ enum ControlRole {
 class VescControl {
 public:
     ControlData data;
-    VescControl(BLDCMotor* motor);
+    VescControl(VescFOC* foc);
     void begin(CanMode canMode = CanMode::NormalCAN);
-    void updateRemote(remote_data_t data);
-    void updateIMU(float angle);
+    void updateSlave(remote_data_t data);
+    void updateMaster(float angle);
     void print();
+    void loop();
+    bool isMaster();
+    bool isSlave();
 
     ControlRole role = UNKNOWN_ROLE;
 
@@ -72,23 +77,16 @@ private:
 
     uint16_t can_identifier = 0x01;
 
-    BLDCMotor* motor;
+    VescFOC* foc;
 
     SimpleCAN _can;
-    // can_message_t txHeadingSpeed = {
-    //   .dlc = 8,
-    //   .id = 0x01,
-    //   .isRTR = false,
-    //   .isStandard = true,
-    //   .data = {0,0,0,0}
-    // };
-    // can_message_t txAngle = {
-    //   .dlc = 4,
-    //   .id = 0x02,
-    //   .isRTR = false,
-    //   .isStandard = true,
-    //   .data = {0,0,0,0,0,0,0,0}
-    // };
+
+    PIDController pid_stb{.P = 0.8, .I = 0.0, .D = 0.1, .ramp = 100000, .limit = 10};
+    PIDController pid_vel{.P = 2.0, .I = 0.0, .D = 0.0, .ramp = 10000, .limit = 15};
+    LowPassFilter lpf_velocity{.Tf = 0.05};
+    LowPassFilter lpf_pitch{.Tf = 0.1};
+    LowPassFilter lpf_throttle{.Tf = 0.1};
+    LowPassFilter lpf_steering{.Tf = 0.1};
 
     can_message_t txMessage = {
       .dlc = 7,

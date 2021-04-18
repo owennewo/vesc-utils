@@ -178,7 +178,7 @@ bool VescIMU::readEuler(bool forceRead)
   long now = micros();
 
   if (now - last_micros > 20000) {
-    Serial.println("late");
+    Serial.print("late: "); Serial.println((now - last_micros));
     interruptCount++;
     dataReady = true;
   }

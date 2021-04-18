@@ -1,8 +1,11 @@
 #include <VescControl.h>
+#include <VescFOC.h>
 
 // #define SET_MASTER_ROLE
 // #define SET_SLAVE_ROLE   
-#define MAX_SPEED 30.0
+#define SEND_INTERVAL 10
+#define MAX_SPEED 2.5
+#define MAX_STEER 0.75
 
 void VescControl::onCanMessage(can_message_t* message)
 {
@@ -17,22 +20,27 @@ void VescControl::onCanMessage(can_message_t* message)
         memcpy(&data.angle, &message->data[3], 4);
     } else if (index == I_CONTROL && subindex == SI_ANGLE_TRIM) {
         memcpy(&data.angle_trim, &message->data[3], 4);
+    } else if (index == I_MOTOR && subindex == SI_VOLTAGE) {
+        memcpy(&data.voltage_slave, &message->data[3], 4);
+    } else if (index == I_MOTOR && subindex == SI_VELOCITY) {
+        memcpy(&data.velocity_slave, &message->data[3], 4);
     } else if (index == I_MOTOR && subindex == SI_ENABLE) {
         uint8_t enabled;
         memcpy(&enabled, &message->data[3], 1);
         if (enabled) {
-            motor->enable();
+            Serial.println("enable");
+            foc->motor->enable();
         } else {
-            motor->disable();
+            Serial.println("disable");
+            foc->motor->disable();
         }
     } else {
         Serial.print("unknown: "); Serial.print(index); Serial.print(":"); Serial.println(subindex);
     }
-
 }
 
-VescControl::VescControl(BLDCMotor* _motor) {
-    motor = _motor;
+VescControl::VescControl(VescFOC* _foc) {
+    foc = _foc;
 }
 
 void VescControl::sendByte(Index index, uint8_t subindex, byte data) {
@@ -64,21 +72,17 @@ void VescControl::begin(CanMode canMode)
     _can.filterAcceptAll();
     _can.begin();
     can_callback_function_t function = std::bind(&VescControl::onCanMessage, this, std::placeholders::_1); 
-    _can.subscribe(function);
-    
+    _can.subscribe(function);   
 }
 
+void VescControl::updateSlave(remote_data_t remote_data) {
 
-void VescControl::updateRemote(remote_data_t remote_data) {
-
-    // update steering
     if (remote_data.x1 != data.steering) {
         data.steering = remote_data.x1;
         sendFloat(I_CONTROL, SI_STEERING, data.steering);
         // Serial.print("steer: "); Serial.println(data.steering);
     }
 
-    // update throttle
     if (remote_data.y1 != data.throttle) {
         data.throttle = remote_data.y1;
         sendFloat(I_CONTROL, SI_THROTTLE, data.throttle);
@@ -92,18 +96,17 @@ void VescControl::updateRemote(remote_data_t remote_data) {
     }
         // Serial.print("enabled::: "); Serial.print(remote_data.switch1); Serial.print(" : "); Serial.println(motor->enabled);
     
-    if (remote_data.switch1 != uint8_t(motor->enabled)) {
+    if (remote_data.switch1 != uint8_t(foc->motor->enabled)) {
         // data.angle_trim = remote_data.pan1;
         if (remote_data.switch1) {
             Serial.print("enabled ");
             delay(10);
-            motor->enable();
+            foc->motor->enable();
             delay(10);
-            
         } else { 
             Serial.print("disable ");
             delay(10);
-            motor->disable();
+            foc->motor->disable();
         }
         // sendFloat(I_CONTROL, SI_ANGLE_TRIM, data.angle_trim);
         // Serial.print("Enabled: "); Serial.println(remote_data.switch1);
@@ -111,26 +114,73 @@ void VescControl::updateRemote(remote_data_t remote_data) {
         sendByte(I_MOTOR, SI_ENABLE, static_cast<byte>(remote_data.switch1));
         Serial.println("after: ");
         delay(1);
-
     }
 
+    static long last = 0;
+    long now = millis();
+    if (now - last > SEND_INTERVAL) {
+        sendFloat(I_MOTOR, SI_VELOCITY, foc->motor->shaft_velocity);
+        last = now;
+    }
 }
 
-void VescControl::updateIMU(float angle) {
+void VescControl::updateMaster(float angle) {
 
     if (angle != data.angle) {
         data.angle = angle;
     }
-    sendFloat(I_CONTROL, SI_ANGLE, angle);
+    // sendFloat(I_CONTROL, SI_ANGLE, angle);
+
+    float throttle = data.throttle * MAX_SPEED;
+
+      float velocity = 0.0;
+      if (foc->reverse) {
+        velocity = -lpf_velocity(foc->motor->shaft_velocity + data.velocity_slave) / 10.0;
+      } else {
+        velocity = lpf_velocity(foc->motor->shaft_velocity + data.velocity_slave) / 10.0;
+      }
+      
+      float target_angle = pid_vel(velocity - throttle /2.0);
+      // float target_pitch = lpf_pitch_cmd(pid_vel((motor1.shaft_velocity + motor2.shaft_velocity) / 2 - lpf_throttle(throttle)));
+      
+      // float target_angle = pid_vel(foc->motor->shaft_velocity - throttle);
+      // float target_angle = pid_vel(throttle);
+
+      target_angle = lpf_pitch(target_angle);
+        // calculate the target voltage
+      float voltage_control = pid_stb(target_angle - data.angle);
+      
+      // filter steering
+      float steering_adj = lpf_steering(data.steering * MAX_STEER);
+      
+      data.voltage_master = voltage_control + steering_adj;
+      data.voltage_slave = voltage_control - steering_adj;
+
+      sendFloat(I_MOTOR, SI_VOLTAGE, -data.voltage_slave);
     
 }
 
+bool VescControl::isMaster() {
+    return role == MASTER_ROLE;
+}
+
+bool VescControl::isSlave() {
+    return role == SLAVE_ROLE;
+}
+
+
+void VescControl::loop() {
+    foc->motor->loopFOC();
+    foc->motor->move(isMaster()? data.voltage_master: data.voltage_slave);
+    print();
+}
+
 void VescControl::print() {
-    // static long count = 0;
-    // count ++;
-    // if (count%1000 == 0) {
-        Serial.print(" "); Serial.print(data.steering); Serial.print(" "); Serial.print(data.throttle); Serial.print(" "); Serial.println(data.angle); 
-    // }
+    static long count = 0;
+    count ++;
+    if (count%1000 == 0) {
+        Serial.print(" "); Serial.print(data.voltage_master); Serial.print(" "); Serial.print(data.voltage_slave); Serial.print(" "); Serial.println(data.angle); 
+    }
 }
 
 void VescControl::loadRole() {
