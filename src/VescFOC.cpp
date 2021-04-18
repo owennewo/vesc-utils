@@ -30,9 +30,9 @@ void VescFOC::begin() {
   motor->voltage_sensor_align = 0.75;
   motor->voltage_limit = 12.0;
 
-  motor->PID_velocity.P = 0.35;
-  motor->PID_velocity.I = 2.0;
-  // motor->LPF_velocity.Tf = 0.001;
+  motor->PID_velocity.P = 2.0;
+  motor->PID_velocity.I = 0.0;
+  motor->LPF_velocity.Tf = 0.05;
   
 
   motor->controller = MotionControlType::torque;

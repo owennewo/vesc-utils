@@ -5,6 +5,10 @@
 #include "VescRemote.h"
 #include "VescFOC.h"
 
+#define SEND_INTERVAL 5
+#define MAX_SPEED 4.0
+#define MAX_STEER 1.0
+
 enum Index {
     I_CONTROL = 0,
     I_MOTOR = 1,
@@ -42,7 +46,12 @@ struct ControlData {
     float angle_trim;
     float voltage_master;
     float voltage_slave;
+    float voltage_balance;
+    float voltage_steering;
     float velocity_slave;
+    float velocity_master;
+    float velocity_diff;
+    
     float reverse;
     bool kill_switch;
 };
@@ -60,6 +69,7 @@ public:
     VescControl(VescFOC* foc);
     void begin(CanMode canMode = CanMode::NormalCAN);
     void updateSlave(remote_data_t data);
+    void updateSlaveVelocity();
     void updateMaster(float angle);
     void print();
     void loop();
@@ -81,9 +91,9 @@ private:
 
     SimpleCAN _can;
 
-    PIDController pid_stb{.P = 0.8, .I = 0.0, .D = 0.1, .ramp = 100000, .limit = 10};
+    PIDController pid_stb{.P = 1.5, .I = 0.1, .D = 0.08, .ramp = 100000, .limit = 10};
     PIDController pid_vel{.P = 2.0, .I = 0.0, .D = 0.0, .ramp = 10000, .limit = 15};
-    LowPassFilter lpf_velocity{.Tf = 0.05};
+    LowPassFilter lpf_velocity{.Tf = 0.1};
     LowPassFilter lpf_pitch{.Tf = 0.1};
     LowPassFilter lpf_throttle{.Tf = 0.1};
     LowPassFilter lpf_steering{.Tf = 0.1};

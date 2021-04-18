@@ -9,6 +9,7 @@ VescMonitor::VescMonitor(BLDCMotor* _motor) {
 float VescMonitor::getVoltage() {
   float raw_voltage = VOLTAGE_REF * (float(analogRead(AN_IN)) / VOLTAGE_RESOLUTION);
   float voltage = raw_voltage * (SUPPLY_VOLTAGE_DIVIDER_1 + SUPPLY_VOLTAGE_DIVIDER_2) / SUPPLY_VOLTAGE_DIVIDER_1;
+  // Serial.println(voltage);
   return voltage;
 }
 
